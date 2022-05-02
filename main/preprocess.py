@@ -138,7 +138,7 @@ def create_datasets(task, dataset, radius, device):
 
     dataset_train = create_dataset('data_train.txt')
     dataset_train, dataset_dev = split_dataset(dataset_train, 0.9)
-    dataset_test = create_dataset('data_test.txt')
+    dataset_test = create_dataset('data_test_reduced.txt')
 
     N_fingerprints = len(fingerprint_dict)
 

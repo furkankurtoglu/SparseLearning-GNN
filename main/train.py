@@ -23,6 +23,8 @@ class MolecularGraphNeuralNetwork(nn.Module):
                                        for _ in range(layer_output)])
         if task == 'classification':
             self.W_property = nn.Linear(dim, 2)
+        if task == 'regression':
+            self.W_property = nn.Linear(dim, 1)
 
     def pad(self, matrices, pad_value):
         """Pad the list of matrices
@@ -45,7 +47,6 @@ class MolecularGraphNeuralNetwork(nn.Module):
 
     def update(self, matrix, vectors, layer):
         hidden_vectors = torch.relu(self.W_fingerprint[layer](vectors))
-        print(self.W_fingerprint)
         return hidden_vectors + torch.matmul(matrix, hidden_vectors)
 
     def sum(self, vectors, axis):
@@ -61,9 +62,7 @@ class MolecularGraphNeuralNetwork(nn.Module):
         """Cat or pad each input data for batch processing."""
         fingerprints, adjacencies, molecular_sizes = inputs
         fingerprints = torch.cat(fingerprints)
-        #print(fingerprints)
         adjacencies = self.pad(adjacencies, 0)
-        
 
         """GNN layer (update the fingerprint vectors)."""
         fingerprint_vectors = self.embed_fingerprint(fingerprints)
@@ -75,7 +74,7 @@ class MolecularGraphNeuralNetwork(nn.Module):
         molecular_vectors = self.sum(fingerprint_vectors, molecular_sizes)
         # molecular_vectors = self.mean(fingerprint_vectors, molecular_sizes)
 
-        return molecular_vectors,adjacencies,fingerprints
+        return molecular_vectors
 
     def mlp(self, vectors):
         """Classifier or regressor based on multilayer perceptron."""
@@ -88,19 +87,11 @@ class MolecularGraphNeuralNetwork(nn.Module):
 
         inputs = data_batch[:-1]
         correct_labels = torch.cat(data_batch[-1])
-        
-        eta = 1;
-        lambd = 1;
 
         if train:
-            molecular_vectors,adjacencies, fingerprints = self.gnn(inputs)
+            molecular_vectors = self.gnn(inputs)
             predicted_scores = self.mlp(molecular_vectors)
             loss = F.cross_entropy(predicted_scores, correct_labels)
-            #lambd * torch.sum(adjacencies)
-            print('Loss before adding: ',loss) 
-            #print(torch.sum(adjacencies))
-            #loss += eta * torch.linalg.norm(self.W_fingerprint, dim=1, p=2)
-            print('Loss after adding: ',loss)
             return loss
         else:
             with torch.no_grad():
@@ -110,6 +101,26 @@ class MolecularGraphNeuralNetwork(nn.Module):
             predicted_scores = [s[1] for s in predicted_scores]
             correct_labels = correct_labels.to('cpu').data.numpy()
             return predicted_scores, correct_labels
+
+    def forward_regressor(self, data_batch, train):
+
+        inputs = data_batch[:-1]
+        correct_values = torch.cat(data_batch[-1])
+
+        if train:
+            molecular_vectors = self.gnn(inputs)
+            predicted_values = self.mlp(molecular_vectors)
+            loss = F.mse_loss(predicted_values, correct_values)
+            return loss
+        else:
+            with torch.no_grad():
+                molecular_vectors = self.gnn(inputs)
+                predicted_values = self.mlp(molecular_vectors)
+            predicted_values = predicted_values.to('cpu').data.numpy()
+            correct_values = correct_values.to('cpu').data.numpy()
+            predicted_values = np.concatenate(predicted_values)
+            correct_values = np.concatenate(correct_values)
+            return predicted_values, correct_values
 
 
 class Trainer(object):
@@ -125,6 +136,8 @@ class Trainer(object):
             data_batch = list(zip(*dataset[i:i+batch_train]))
             if task == 'classification':
                 loss = self.model.forward_classifier(data_batch, train=True)
+            if task == 'regression':
+                loss = self.model.forward_regressor(data_batch, train=True)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -148,20 +161,72 @@ class Tester(object):
         AUC = roc_auc_score(np.concatenate(C), np.concatenate(P))
         return AUC
 
+    def test_regressor(self, dataset):
+        N = len(dataset)
+        SAE = 0  # sum absolute error.
+        for i in range(0, N, batch_test):
+            data_batch = list(zip(*dataset[i:i+batch_test]))
+            predicted_values, correct_values = self.model.forward_regressor(
+                                               data_batch, train=False)
+            SAE += sum(np.abs(predicted_values-correct_values))
+        MAE = SAE / N  # mean absolute error.
+        return MAE
 
     def save_result(self, result, filename):
         with open(filename, 'a') as f:
             f.write(result + '\n')
 
+def proximal_l0(yvec, c):
+    yvec_abs =  torch.abs(yvec)
+    csqrt = torch.sqrt(c)
+    
+    xvec = (yvec_abs>=csqrt)*yvec
+    return xvec
+
+# solution for ||x-y||^2_2 + c||x||_2^2
+def proximal_l2(yvec, c):
+    return (1./(1.+c))*yvec
+    
+    
+    
+    
+
+def palm(model, reg_l0, reg_decay, lr=0.001, lip=0.001):
+    
+    
+    for name, param in model.named_parameters():
+        if "Adjacency" in name:
+            # there should be masking before proximal_l0
+            param_tmp = param.data - lip*param.grad.data
+            param.data = proximal_l0(param_tmp, reg_l0)
+        elif "Weights" in name:
+            # there should be weight calculation before proximal_l2
+            param_tmp = param.data - lr*param.grad.data
+            param.data = proximal_l2(param_tmp, reg_decay)
+            
+    return
+
+
 
 if __name__ == "__main__":
 
-    (task, dataset, radius, dim, layer_hidden, layer_output,
-     batch_train, batch_test, lr, lr_decay, decay_interval, iteration,
-     setting) = sys.argv[1:]
-    (radius, dim, layer_hidden, layer_output,
-     batch_train, batch_test, decay_interval,
-     iteration) = map(int, [radius, dim, layer_hidden, layer_output,
+    #(task, dataset, radius, dim, layer_hidden, layer_output, batch_train, batch_test, lr, lr_decay, decay_interval, iteration, setting) = sys.argv[1:]
+    task = 'classification'
+    dataset = 'hiv'
+    radius = 1
+    dim = 50
+    layer_hidden = 6
+    layer_output = 6
+    batch_train = 32
+    batch_test = 32
+    lr = 1e-4
+    lr_decay = 0.99
+    decay_interval = 10
+    iteration = 1000
+     
+    setting = task[0:5] + '_' + dataset + '_' + str(radius) + '_' + str(dim) + '_' + str(layer_hidden) + '_' + str(layer_output) + '_' + str(batch_train)  + '_' + str(batch_test) + '_' + str(lr) + '_' + str(lr_decay) + '_' + str(decay_interval) + '_' + str(iteration)
+     
+    (radius, dim, layer_hidden, layer_output, batch_train, batch_test, decay_interval, iteration) = map(int, [radius, dim, layer_hidden, layer_output,
                             batch_train, batch_test,
                             decay_interval, iteration])
     lr, lr_decay = map(float, [lr, lr_decay])
