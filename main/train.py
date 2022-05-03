@@ -17,6 +17,7 @@ class MolecularGraphNeuralNetwork(nn.Module):
     def __init__(self, N_fingerprints, dim, layer_hidden, layer_output):
         super(MolecularGraphNeuralNetwork, self).__init__()
         self.embed_fingerprint = nn.Embedding(N_fingerprints, dim)
+        #print(self.embed_fingerprint)
         self.W_fingerprint = nn.ModuleList([nn.Linear(dim, dim)
                                             for _ in range(layer_hidden)])
         self.W_output = nn.ModuleList([nn.Linear(dim, dim)
@@ -136,8 +137,6 @@ class Trainer(object):
             data_batch = list(zip(*dataset[i:i+batch_train]))
             if task == 'classification':
                 loss = self.model.forward_classifier(data_batch, train=True)
-            if task == 'regression':
-                loss = self.model.forward_regressor(data_batch, train=True)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -255,6 +254,12 @@ if __name__ == "__main__":
     torch.manual_seed(1234)
     model = MolecularGraphNeuralNetwork(
             N_fingerprints, dim, layer_hidden, layer_output).to(device)
+    
+    for name, param in model.named_parameters():
+        print('Names :',name)
+        print('Params :', param)
+    
+    
     trainer = Trainer(model)
     tester = Tester(model)
     print('# of model parameters:',

@@ -16,6 +16,7 @@ def create_atoms(mol, atom_dict):
     for a in mol.GetAromaticAtoms():
         i = a.GetIdx()
         atoms[i] = (atoms[i], 'aromatic')
+    
     atoms = [atom_dict[a] for a in atoms]
     return np.array(atoms)
 
@@ -31,6 +32,7 @@ def create_ijbonddict(mol, bond_dict):
         bond = bond_dict[str(b.GetBondType())]
         i_jbond_dict[i].append((j, bond))
         i_jbond_dict[j].append((i, bond))
+    #print(i_jbond_dict)
     return i_jbond_dict
 
 
@@ -57,6 +59,7 @@ def extract_fingerprints(radius, atoms, i_jbond_dict,
                 neighbors = [(nodes[j], edge) for j, edge in j_edge]
                 fingerprint = (nodes[i], tuple(sorted(neighbors)))
                 nodes_.append(fingerprint_dict[fingerprint])
+            #print(nodes_)
 
             """Also update each edge ID considering
             its two nodes on both sides.
@@ -67,10 +70,10 @@ def extract_fingerprints(radius, atoms, i_jbond_dict,
                     both_side = tuple(sorted((nodes[i], nodes[j])))
                     edge = edge_dict[(both_side, edge)]
                     i_jedge_dict_[i].append((j, edge))
-
+    #        print(i_jedge_dict_)
             nodes = nodes_
             i_jedge_dict = i_jedge_dict_
-
+    #print(nodes)
     return np.array(nodes)
 
 
@@ -136,7 +139,7 @@ def create_datasets(task, dataset, radius, device):
 
         return dataset
 
-    dataset_train = create_dataset('data_train.txt')
+    dataset_train = create_dataset('data_train_reduced.txt')
     dataset_train, dataset_dev = split_dataset(dataset_train, 0.9)
     dataset_test = create_dataset('data_test_reduced.txt')
 
