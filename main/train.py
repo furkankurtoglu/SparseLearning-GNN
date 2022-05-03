@@ -127,7 +127,8 @@ class MolecularGraphNeuralNetwork(nn.Module):
 class Trainer(object):
     def __init__(self, model):
         self.model = model
-        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
+        self.optimizer = palm (inputs....)
+#        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
     def train(self, dataset):
         np.random.shuffle(dataset)
@@ -194,16 +195,16 @@ def palm(model, reg_l0, reg_decay, lr=0.001, lip=0.001):
     
     
     for name, param in model.named_parameters():
-        if "Adjacency" in name:
+        #if "Adjacency" in name:
             # there should be masking before proximal_l0
             param_tmp = param.data - lip*param.grad.data
             param.data = proximal_l0(param_tmp, reg_l0)
-        elif "Weights" in name:
+        #elif "Weights" in name:
             # there should be weight calculation before proximal_l2
             param_tmp = param.data - lr*param.grad.data
             param.data = proximal_l2(param_tmp, reg_decay)
             
-    return
+    
 
 
 
