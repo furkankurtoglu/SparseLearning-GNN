@@ -1,3 +1,5 @@
+#To start rdkit environment, please copy and paste before the simulation
+#conda activate my-rdkit-env
 import sys
 import timeit
 
@@ -24,8 +26,7 @@ class MolecularGraphNeuralNetwork(nn.Module):
                                        for _ in range(layer_output)])
         if task == 'classification':
             self.W_property = nn.Linear(dim, 2)
-        if task == 'regression':
-            self.W_property = nn.Linear(dim, 1)
+
 
     def pad(self, matrices, pad_value):
         """Pad the list of matrices
@@ -103,31 +104,12 @@ class MolecularGraphNeuralNetwork(nn.Module):
             correct_labels = correct_labels.to('cpu').data.numpy()
             return predicted_scores, correct_labels
 
-    def forward_regressor(self, data_batch, train):
-
-        inputs = data_batch[:-1]
-        correct_values = torch.cat(data_batch[-1])
-
-        if train:
-            molecular_vectors = self.gnn(inputs)
-            predicted_values = self.mlp(molecular_vectors)
-            loss = F.mse_loss(predicted_values, correct_values)
-            return loss
-        else:
-            with torch.no_grad():
-                molecular_vectors = self.gnn(inputs)
-                predicted_values = self.mlp(molecular_vectors)
-            predicted_values = predicted_values.to('cpu').data.numpy()
-            correct_values = correct_values.to('cpu').data.numpy()
-            predicted_values = np.concatenate(predicted_values)
-            correct_values = np.concatenate(correct_values)
-            return predicted_values, correct_values
 
 
 class Trainer(object):
     def __init__(self, model):
         self.model = model
-        self.optimizer = palm (inputs....)
+        self.optimizer = palm (model)
 #        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
     def train(self, dataset):
@@ -138,9 +120,10 @@ class Trainer(object):
             data_batch = list(zip(*dataset[i:i+batch_train]))
             if task == 'classification':
                 loss = self.model.forward_classifier(data_batch, train=True)
-            self.optimizer.zero_grad()
+            palm(model)
+            #self.optimizer.zero_grad()
             loss.backward()
-            self.optimizer.step()
+            #self.optimizer.step()
             loss_total += loss.item()
         return loss_total
 
@@ -161,16 +144,6 @@ class Tester(object):
         AUC = roc_auc_score(np.concatenate(C), np.concatenate(P))
         return AUC
 
-    def test_regressor(self, dataset):
-        N = len(dataset)
-        SAE = 0  # sum absolute error.
-        for i in range(0, N, batch_test):
-            data_batch = list(zip(*dataset[i:i+batch_test]))
-            predicted_values, correct_values = self.model.forward_regressor(
-                                               data_batch, train=False)
-            SAE += sum(np.abs(predicted_values-correct_values))
-        MAE = SAE / N  # mean absolute error.
-        return MAE
 
     def save_result(self, result, filename):
         with open(filename, 'a') as f:
@@ -191,18 +164,24 @@ def proximal_l2(yvec, c):
     
     
 
-def palm(model, reg_l0, reg_decay, lr=0.001, lip=0.001):
-    
-    
+def palm(model, reg_l0=0.0001, reg_decay=0.0001, lr=0.001, lip=0.001):
+    #dG_prune = dG.copy()
+    average = 0
     for name, param in model.named_parameters():
-        #if "Adjacency" in name:
+        if "W_fingerprint" in name:
+            if(name[16:17] == 'w'):
+                average = torch.add(average,param)
             # there should be masking before proximal_l0
-            param_tmp = param.data - lip*param.grad.data
-            param.data = proximal_l0(param_tmp, reg_l0)
-        #elif "Weights" in name:
+            #print('After Params :', param)
+            # param_tmp = param - lip*param.grad.data ???
+                param = proximal_l0(param_tmp, reg_l0)
+        #print(average/5)
+        elif "W_out" in name:
+           # print('Names :',name)
+            #print('Params :', param)
             # there should be weight calculation before proximal_l2
-            param_tmp = param.data - lr*param.grad.data
-            param.data = proximal_l2(param_tmp, reg_decay)
+            #param_tmp = param.data - lr*param.grad.data
+            #param.data = proximal_l2(param_tmp, reg_decay)
             
     
 
