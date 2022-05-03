@@ -107,9 +107,9 @@ class MolecularGraphNeuralNetwork(nn.Module):
 
 
 class Trainer(object):
-    def __init__(self, model):
+    def __init__(self, model, adjacencies):
         self.model = model
-        self.optimizer = palm (model)
+        self.optimizer = palm (model, adjacencies)
 #        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
     def train(self, dataset):
@@ -164,25 +164,24 @@ def proximal_l2(yvec, c):
     
     
 
-def palm(model, reg_l0=0.0001, reg_decay=0.0001, lr=0.001, lip=0.001):
+def palm(model, adjacencies, reg_l0=0.0001, reg_decay=0.0001, lr=0.001, lip=0.001):
     #dG_prune = dG.copy()
-    average = 0
+    adjacencies = adjacencies
+    average_f = 0
+    average_o = 0
     for name, param in model.named_parameters():
         if "W_fingerprint" in name:
             if(name[16:17] == 'w'):
-                average = torch.add(average,param)
+                average_f = torch.add(average_f,param)
             # there should be masking before proximal_l0
             #print('After Params :', param)
             # param_tmp = param - lip*param.grad.data ???
-                param = proximal_l0(param_tmp, reg_l0)
+                param = proximal_l0(average_f, reg_l0)
         #print(average/5)
         elif "W_out" in name:
-           # print('Names :',name)
-            #print('Params :', param)
-            # there should be weight calculation before proximal_l2
-            #param_tmp = param.data - lr*param.grad.data
-            #param.data = proximal_l2(param_tmp, reg_decay)
-            
+            if(name[16:17] == 'w'):
+                average_o = torch.add(average_o,param)
+        #prune adjacencies
     
 
 
