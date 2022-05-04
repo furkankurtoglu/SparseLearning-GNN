@@ -111,7 +111,7 @@ def create_datasets(task, dataset, radius, device):
                          if '.' not in data.split()[0]]
 
         dataset = []
-
+        adjacencies = []
         for data in data_original:
 
             smiles, property = data.strip().split()
@@ -136,13 +136,13 @@ def create_datasets(task, dataset, radius, device):
                 property = torch.FloatTensor([[float(property)]]).to(device)
 
             dataset.append((fingerprints, adjacency, molecular_size, property))
-
+            adjacencies.append(adjacency)
         return dataset
 
-    dataset_train = create_dataset('data_train_reduced.txt')
+    dataset_train, adjacency = create_dataset('data_train_reduced.txt')
     dataset_train, dataset_dev = split_dataset(dataset_train, 0.9)
     dataset_test = create_dataset('data_test_reduced.txt')
 
     N_fingerprints = len(fingerprint_dict)
 
-    return dataset_train, dataset_dev, dataset_test, N_fingerprints
+    return dataset_train, dataset_dev, dataset_test, N_fingerprints, 
