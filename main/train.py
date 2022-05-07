@@ -11,18 +11,19 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from sklearn.metrics import roc_auc_score
-
+from torch.autograd import Variable
 import preprocess as pp
 
 
 class MolecularGraphNeuralNetwork(nn.Module):
-    def __init__(self, N_fingerprints, dim, layer_hidden, layer_output):
+    def __init__(self, N_fingerprints, dim, layer_hidden, layer_output,adjacencies):
         super(MolecularGraphNeuralNetwork, self).__init__()
         self.embed_fingerprint = nn.Embedding(N_fingerprints, dim)
         #print(self.embed_fingerprint)
-#       self.adjacencies = adj
+        self.adjacencies = adjacencies
+        #print(self.adjacencies)
         self.W_fingerprint = nn.ModuleList([nn.Linear(dim, dim)
-                                            for _ in range(layer_hidden)])
+                                            for _ in range(layer_hidden)]) 
         self.W_output = nn.ModuleList([nn.Linear(dim, dim)
                                        for _ in range(layer_output)])
         if task == 'classification':
@@ -163,10 +164,16 @@ def proximal_l2(yvec, c):
     
 
 def palm(model, reg_l0=0.0001, reg_decay=0.0001, lr=0.001, lip=0.001):
-    #dG_prune = dG.copy()
+    adj_prune = model.adjacencies
     average_f = 0
     average_o = 0
-    #for name, param in model.named_parameters():
+    
+    
+    # for name, param in model.named_parameters():
+        # print('Names :',name)
+        # print('Params :', param.grad)
+    
+    # for name, param in model.named_parameters():
     
     
         # if "W_fingerprint" in name:
@@ -180,7 +187,7 @@ def palm(model, reg_l0=0.0001, reg_decay=0.0001, lr=0.001, lip=0.001):
         # elif "W_out" in name:
             # if(name[16:17] == 'w'):
                 # average_o = torch.add(average_o,param)
-        # #prune adjacencies
+        #prune adjacencies
     
 
 
@@ -231,11 +238,12 @@ if __name__ == "__main__":
     print('Creating a model.')
     torch.manual_seed(1234)
     model = MolecularGraphNeuralNetwork(
-            N_fingerprints, dim, layer_hidden, layer_output).to(device)
+            N_fingerprints, dim, layer_hidden, layer_output,adjacencies).to(device)
     
     for name, param in model.named_parameters():
-        print('Names :',name)
-        print('Params :', param)
+        if "W_fingerprint" in name:
+            if(name[16:17] == 'w'):
+               print(param)
     
     
     trainer = Trainer(model)

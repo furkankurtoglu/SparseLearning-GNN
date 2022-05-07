@@ -5,6 +5,7 @@ import numpy as np
 from rdkit import Chem
 
 import torch
+from torch.autograd import Variable
 
 
 def create_atoms(mol, atom_dict):
