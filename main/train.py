@@ -20,6 +20,7 @@ class MolecularGraphNeuralNetwork(nn.Module):
         super(MolecularGraphNeuralNetwork, self).__init__()
         self.embed_fingerprint = nn.Embedding(N_fingerprints, dim)
         #print(self.embed_fingerprint)
+#       self.adjacencies = adj
         self.W_fingerprint = nn.ModuleList([nn.Linear(dim, dim)
                                             for _ in range(layer_hidden)])
         self.W_output = nn.ModuleList([nn.Linear(dim, dim)
@@ -107,9 +108,9 @@ class MolecularGraphNeuralNetwork(nn.Module):
 
 
 class Trainer(object):
-    def __init__(self, model, adjacencies):
+    def __init__(self, model):
         self.model = model
-        self.optimizer = palm (model, adjacencies)
+        self.optimizer = palm (model)
 #        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
     def train(self, dataset):
@@ -160,28 +161,26 @@ def proximal_l0(yvec, c):
 def proximal_l2(yvec, c):
     return (1./(1.+c))*yvec
     
-    
-    
-    
 
-def palm(model, adjacencies, reg_l0=0.0001, reg_decay=0.0001, lr=0.001, lip=0.001):
+def palm(model, reg_l0=0.0001, reg_decay=0.0001, lr=0.001, lip=0.001):
     #dG_prune = dG.copy()
-    adjacencies = adjacencies
     average_f = 0
     average_o = 0
-    for name, param in model.named_parameters():
-        if "W_fingerprint" in name:
-            if(name[16:17] == 'w'):
-                average_f = torch.add(average_f,param)
-            # there should be masking before proximal_l0
-            #print('After Params :', param)
-            # param_tmp = param - lip*param.grad.data ???
-                param = proximal_l0(average_f, reg_l0)
-        #print(average/5)
-        elif "W_out" in name:
-            if(name[16:17] == 'w'):
-                average_o = torch.add(average_o,param)
-        #prune adjacencies
+    #for name, param in model.named_parameters():
+    
+    
+        # if "W_fingerprint" in name:
+            # if(name[16:17] == 'w'):
+                # average_f = torch.add(average_f,param)
+            # # there should be masking before proximal_l0
+            # #print('After Params :', param)
+            # # param_tmp = param - lip*param.grad.data ???
+                # param = proximal_l0(average_f, reg_l0)
+        # #print(average/5)
+        # elif "W_out" in name:
+            # if(name[16:17] == 'w'):
+                # average_o = torch.add(average_o,param)
+        # #prune adjacencies
     
 
 
@@ -220,7 +219,7 @@ if __name__ == "__main__":
     print('Preprocessing the', dataset, 'dataset.')
     print('Just a moment......')
     (dataset_train, dataset_dev, dataset_test,
-     N_fingerprints) = pp.create_datasets(task, dataset, radius, device)
+     N_fingerprints, adjacencies) = pp.create_datasets(task, dataset, radius, device)
     print('-'*100)
 
     print('The preprocess has finished!')

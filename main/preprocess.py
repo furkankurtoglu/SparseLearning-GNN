@@ -137,12 +137,12 @@ def create_datasets(task, dataset, radius, device):
 
             dataset.append((fingerprints, adjacency, molecular_size, property))
             adjacencies.append(adjacency)
-        return dataset
+        return dataset, adjacencies
 
     dataset_train, adjacency = create_dataset('data_train_reduced.txt')
     dataset_train, dataset_dev = split_dataset(dataset_train, 0.9)
-    dataset_test = create_dataset('data_test_reduced.txt')
+    dataset_test, adjacency_test = create_dataset('data_test_reduced.txt')
 
     N_fingerprints = len(fingerprint_dict)
 
-    return dataset_train, dataset_dev, dataset_test, N_fingerprints, 
+    return dataset_train, dataset_dev, dataset_test, N_fingerprints, adjacency
