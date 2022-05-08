@@ -164,30 +164,36 @@ def proximal_l2(yvec, c):
     
 
 def palm(model, reg_l0=0.0001, reg_decay=0.0001, lr=0.001, lip=0.001):
-    adj_prune = model.adjacencies
-    average_f = 0
-    average_o = 0
+
+    #adj_tensor = torch.tensor(model.adjacencies, requires_grad = True)
     
+    #average_f = 0
+    #average_o = 0
     
-    # for name, param in model.named_parameters():
-        # print('Names :',name)
-        # print('Params :', param.grad)
+    adj_prune = model.adjacencies[0]
+#    print(model.adjacencies)
     
-    # for name, param in model.named_parameters():
-    
-    
-        # if "W_fingerprint" in name:
-            # if(name[16:17] == 'w'):
-                # average_f = torch.add(average_f,param)
-            # # there should be masking before proximal_l0
-            # #print('After Params :', param)
-            # # param_tmp = param - lip*param.grad.data ???
-                # param = proximal_l0(average_f, reg_l0)
-        # #print(average/5)
-        # elif "W_out" in name:
-            # if(name[16:17] == 'w'):
+
+    for name, param in model.named_parameters():
+        if "W_fingerprint" in name:
+            if(name[16:17] == 'w'): # being sure that we are not taking biases
+                #average_f = torch.add(average_f,param)
+                # there should be masking before proximal_l0
+                #print('After Params :', param)
+                if not (param.grad == None): 
+                    param_tmp = param - lip * param.grad 
+                    param = proximal_l0(param_tmp, torch.tensor(reg_l0))
+        
+        elif "W_out" in name: # output weights
+            if(name[16:17] == 'w'):
+                # other param weigth decay
                 # average_o = torch.add(average_o,param)
-        #prune adjacencies
+                if not (param.grad == None): 
+                    param_tmp = param - lr*param.grad
+                    param = proximal_l2(param_tmp, torch.tensor(reg_decay))
+           
+                
+
     
 
 
@@ -196,7 +202,7 @@ if __name__ == "__main__":
 
     #(task, dataset, radius, dim, layer_hidden, layer_output, batch_train, batch_test, lr, lr_decay, decay_interval, iteration, setting) = sys.argv[1:]
     task = 'classification'
-    dataset = 'hiv'
+    dataset = 'hiv' # or 'bbp'
     radius = 1
     dim = 50
     layer_hidden = 6
@@ -240,11 +246,9 @@ if __name__ == "__main__":
     model = MolecularGraphNeuralNetwork(
             N_fingerprints, dim, layer_hidden, layer_output,adjacencies).to(device)
     
-    for name, param in model.named_parameters():
-        if "W_fingerprint" in name:
-            if(name[16:17] == 'w'):
-               print(param)
-    
+    torch.set_printoptions(threshold=10_000)
+
+    print(len(model.adjacencies))
     
     trainer = Trainer(model)
     tester = Tester(model)
